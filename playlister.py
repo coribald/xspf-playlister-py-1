@@ -147,14 +147,14 @@ def scanMedia(path):
 	return playArr
 
 def generateXML(playArr):
-	from cgi import escape
+	from html import escape
 	out = '<?xml version="1.0" encoding="UTF-8"?>' + '\n'
 	out += '<playlist version="1" xmlns="http://xspf.org/ns/0/">' + '\n'
 	out += '  <trackList>' + '\n'
 	for l in playArr:
 		out += '    <track>' + '\n'
 		for i in l['location']:
-			out += '      <location>' + escape(i).encode('ascii', 'xmlcharrefreplace') + '</location>' + '\n'
+			out += '      <location>' + escape(i).encode('ascii', 'xmlcharrefreplace').decode() + '</location>' + '\n'
 		out += '      <creator>' + l['creator'] + '</creator>' + '\n'
 		out += '      <album>' + l['album'] + '</album>' + '\n'
 		out += '      <title>' + l['title'] + '</title>' + '\n'

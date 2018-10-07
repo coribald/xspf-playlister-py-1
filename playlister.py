@@ -28,19 +28,19 @@ from hsaudiotag import auto
 
 # USE ID3 TAGS TO AUTOMATICALLY FILL TRACK INFORMATION
 # (as opposed to specifying in the directory structure, e.g. 'media/artist/album/track.mp3')
-id3 = true;
+id3 = True
 
 # CACHE PLAYLIST - seconds to persist cache before rescan, 0 for no cache
-cache = 3600;
+cache = 3600
 
 # CACHE PLAYLIST FILE - path/url - relative
-playlist = 'xplay_generated_playlist.xml';
+playlist = 'xplay_generated_playlist.xml'
 
 # RETRIEVE ARTWORK - boolean
-artwork = true;
+artwork = True
 
 # MEDIA DIRECTORY - path/url - relative
-media = 'media';
+media = 'media'
 
 #####################################
 ###  DO NOT EDIT BELOW THIS LINE  ###

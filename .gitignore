@@ -57,3 +57,5 @@ logs
 ehthumbs.db
 Thumbs.db
 .fuse*
+
+hsaudiotag/__pycache__

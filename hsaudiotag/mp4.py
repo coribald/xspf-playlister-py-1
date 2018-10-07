@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 # Created By: Virgil Dupras
 # Created On: 2005/07/27
 # Copyright 2010 Hardcoded Software (http://www.hardcoded.net)
 
-# This software is licensed under the "BSD" License as described in the "LICENSE" file, 
-# which should be included with this package. The terms are also available at 
+# This software is licensed under the "BSD" License as described in the "LICENSE" file,
+# which should be included with this package. The terms are also available at
 # http://www.hardcoded.net/licenses/bsd_license
 
 import re
@@ -15,16 +14,18 @@ from .genres import genre_by_index
 
 HEADER_SIZE = 8
 
-re_atom_type = re.compile(ur'[A-Za-z0-9\-©]{4}')
+re_atom_type = re.compile(r'[A-Za-z0-9\-©]{4}')
+
 
 def read_atom_header(readfunc, offset):
     header = readfunc(offset, HEADER_SIZE)
     if len(header) == HEADER_SIZE:
         size, byte_type = struct.unpack('!i4s', header)
-        str_type = unicode(byte_type, u'latin-1')
+        str_type = str(byte_type, 'latin-1')
         return (size, str_type)
     else:
         return ()
+
 
 def is_valid_atom_type(atom_type):
     return re_atom_type.match(atom_type)
@@ -32,9 +33,10 @@ def is_valid_atom_type(atom_type):
 
 # Base atom classes *****************************************
 
-class Atom(object):
+
+class Atom:
     cls_data_model = ''
-    
+
     def __init__(self, parent, start_offset, header=None):
         """parent is anything that has a read method"""
         self.parent = parent
@@ -49,10 +51,10 @@ class Atom(object):
             self.size, self.type = header
             self._valid = True
 
-    #--- Protected
+    # --- Protected
     def _get_data_model(self):
         return self.cls_data_model
-    
+
     def _read_atom_data(self):
         dm = '!' + self._get_data_model()
         if '*s' in dm:
@@ -63,59 +65,59 @@ class Atom(object):
         if len(data) < self._datasize:
             data = data.ljust(self._datasize)
         return struct.unpack(dm, data)
-    
-    #--- Public
+
+    # --- Public
     def read(self, startat=0, readcount=-1):
         if readcount < 0:
             readcount = self.content_size
         return self.parent.read(self.start_offset + HEADER_SIZE + startat, readcount)
-    
-    #--- Properties
+
+    # --- Properties
     @property
     def content_size(self):
         return self.size - HEADER_SIZE
-    
+
     @property
     def data(self):
         if self._data is None:
             self._data = self._read_atom_data()
         return self._data
-    
+
     @property
     def valid(self):
         return self._valid
-    
+
 
 class AtomBox(Atom):
     def __init__(self, parent, start_offset, header=None):
         Atom.__init__(self, parent, start_offset, header)
         self._children = None
-    
-    #--- Protected
+
+    # --- Protected
     def _read_children(self):
         children = []
-        self.data #pre-read data
-        #self.data[-1] is the data of the children
+        self.data  # pre-read data
+        # self.data[-1] is the data of the children
         startat = self._datasize
         while startat < self.content_size:
             header = read_atom_header(self.read, startat)
             if not header:
                 break
-            if header[0] == 0: #when size is zero, it takes the rest of the atom
+            if header[0] == 0:  # when size is zero, it takes the rest of the atom
                 header = (self.content_size - startat, header[1])
-            if header[0] < HEADER_SIZE: #safeguard
+            if header[0] < HEADER_SIZE:  # safeguard
                 header = (HEADER_SIZE, header[1])
             if is_valid_atom_type(header[1]):
                 subatom = self._get_atom_class(header[1])(self, startat, header)
                 children.append(subatom)
             startat += header[0]
-        
+
         return tuple(children)
-    
+
     def _get_atom_class(self, type):
         return ATOM_SPECS.get(type, Atom)
-    
-    #--- Public
+
+    # --- Public
     def find(self, atom_type):
         gotta_find = atom_type[:4]
         # You'd think that iterating through atoms is slow and that there should be a {type:atom}
@@ -127,21 +129,21 @@ class AtomBox(Atom):
                     return atom.find(atom_type[5:])
                 else:
                     return atom
-    
-    #--- Properties
+
+    # --- Properties
     @property
     def atoms(self):
         if self._children is None:
             self._children = self._read_children()
         return self._children
-    
 
-#Specific atoms *************************************************************
+
+# Specific atoms *************************************************************
 
 class AttributeAtom(AtomBox):
     def _get_atom_class(self, type):
         return AttributeDataAtom
-    
+
     @property
     def attr_data(self):
         try:
@@ -149,183 +151,201 @@ class AttributeAtom(AtomBox):
         except IndexError:
             # For some reason, our attribute atom has no data sub-atom, no biggie, just return nothing.
             return ''
-    
+
 
 class AttributeDataAtom(Atom):
     def _get_data_model(self, integer_type='i'):
         [data_type] = struct.unpack('!i', self.read(0, 4))
         return '2i' + (integer_type if data_type == 0 else '*s')
-    
+
     def _read_atom_data(self):
         result = Atom._read_atom_data(self)
-        #Convert to unicode if needed
-        if isinstance(result[2], str):
+        # Convert to unicode if needed
+        if isinstance(result[2], bytes):
             result = list(result)
-            result[2] = result[2].decode(u'utf-8', u'ignore')
+            result[2] = result[2].decode('utf-8', 'ignore')
             result = tuple(result)
         return result
-    
+
     @property
     def attr_data(self):
         return self.data[2]
-    
+
 
 class EsdsAtom(Atom):
-    cls_data_model = '26si' 
-    
+    cls_data_model = '26si'
+
     @property
     def bitrate(self):
         return self.data[1]
-       
+
 
 class GnreAtom(AttributeAtom):
     def _get_atom_class(self, type):
         return GnreDataAtom
-    
+
 
 class GnreDataAtom(AttributeDataAtom):
     def _get_data_model(self):
         return AttributeDataAtom._get_data_model(self, 'H')
-    
+
 
 class MetaAtom(AtomBox):
     cls_data_model = 'i'
+
 
 class MdhdAtom(Atom):
     def _get_data_model(self):
         [version] = struct.unpack('B', self.read(0, 1))
         return '20s2i' if version > 0 else '12s2i'
-    
+
     @property
     def sample_rate(self):
         return self.data[1]
-    
+
     @property
     def duration(self):
         return self.data[2]
-    
+
 
 class StsdAtom(AtomBox):
     def _get_data_model(self):
         [version] = struct.unpack('4s', self.read(12, 4))
-        if version in ('mp4v', 'avc1', 'encv', 's263'):
-            return '94s'
-        elif version in ('mp4a', 'drms', 'enca', 'samr', 'sawb'):
+        if version in (b'mp4v', b'avc1', b'encv', b's263'):
+            return'94s'
+        elif version in (b'mp4a', b'drms', b'enca', b'samr', b'sawb'):
             return '44s'
         else:
             return '24s'
-    
+
 
 ATOM_SPECS = {
-    u'©nam': AttributeAtom,
-    u'©ART': AttributeAtom,
-    u'©wrt': AttributeAtom,
-    u'©alb': AttributeAtom,
-    u'©too': AttributeAtom,
-    u'©day': AttributeAtom,
-    u'©cmt': AttributeAtom,
-    u'©gen': AttributeAtom,
-    u'data': AttributeDataAtom,
-    u'esds': EsdsAtom,
-    u'gnre': GnreAtom,
-    u'ilst': AtomBox,
-    u'mdhd': MdhdAtom,
-    u'mdia': AtomBox,
-    u'meta': MetaAtom,
-    u'minf': AtomBox,
-    u'moov': AtomBox,
-    u'stbl': AtomBox,
-    u'stsd': StsdAtom,
-    u'trak': AtomBox,
-    u'trkn': AttributeAtom,
-    u'udta': AtomBox,
+    '©nam': AttributeAtom,
+    '©ART': AttributeAtom,
+    '©wrt': AttributeAtom,
+    '©alb': AttributeAtom,
+    '©too': AttributeAtom,
+    '©day': AttributeAtom,
+    '©cmt': AttributeAtom,
+    '©gen': AttributeAtom,
+    'data': AttributeDataAtom,
+    'esds': EsdsAtom,
+    'gnre': GnreAtom,
+    'ilst': AtomBox,
+    'mdhd': MdhdAtom,
+    'mdia': AtomBox,
+    'meta': MetaAtom,
+    'minf': AtomBox,
+    'moov': AtomBox,
+    'stbl': AtomBox,
+    'stsd': StsdAtom,
+    'trak': AtomBox,
+    'trkn': AttributeAtom,
+    'udta': AtomBox,
 }
 
 # Mp4 File **********************************************************
 
+
 class File(AtomBox):
+    '''The class used to handle MP4 (m4a, m4p) metadata.
+
+    :param infile: The file path to process.
+    '''
     def __init__(self, infile):
-        self._fp, self._shouldclose = open_if_filename(infile, u'rb')
+        self._fp, self._shouldclose = open_if_filename(infile, 'rb')
         self._fp.seek(0, 2)
-        AtomBox.__init__(self, None, 0, (self._fp.tell(), u'root'))
-    
+        AtomBox.__init__(self, None, 0, (self._fp.tell(), 'root'))
+
     def _get_attr(self, path):
         atom = self.find(path)
         return atom.attr_data if atom else ''
-    
+
     def close(self):
         if self._fp and self._shouldclose:
             self._fp.close()
             self._fp = None
-    
+
     def read(self, startat=0, readcount=-1):
         if startat < 0:
             startat = 0
         self._fp.seek(startat)
         return self._fp.read(readcount)
-    
+
     @property
     def album(self):
-        return self._get_attr(u'moov.udta.meta.ilst.©alb')
-    
+        '''The album on which the audio appears.'''
+        return self._get_attr('moov.udta.meta.ilst.©alb')
+
     @property
     def artist(self):
-        return self._get_attr(u'moov.udta.meta.ilst.©ART')
-    
+        '''The artist associated with the audio.'''
+        return self._get_attr('moov.udta.meta.ilst.©ART')
+
     @property
     def audio_offset(self):
-        atoms = [a for a in self.atoms if (a.size > 8) and (a.type == u'mdat')]
+        '''The offset, in bytes, at which audio data starts in the file.'''
+        atoms = [a for a in self.atoms if (a.size > 8) and (a.type == 'mdat')]
         return atoms[0].start_offset if atoms else 0
-    
+
     @property
     def audio_size(self):
-        atoms = [a for a in self.atoms if (a.size > 8) and (a.type == u'mdat')]
+        '''The size of the audio part of the file in bytes.'''
+        atoms = [a for a in self.atoms if (a.size > 8) and (a.type == 'mdat')]
         return atoms[0].size if atoms else 0
-    
+
     @property
     def bitrate(self):
-        atom = self.find(u'moov.trak.mdia.minf.stbl.stsd.esds')
+        '''The bitrate of the audio file.'''
+        atom = self.find('moov.trak.mdia.minf.stbl.stsd.esds')
         return atom.bitrate // 1000 if atom else 0
-    
+
     @property
     def comment(self):
-        return self._get_attr(u'moov.udta.meta.ilst.©cmt')
-    
+        '''The comment in the audio file.'''
+        return self._get_attr('moov.udta.meta.ilst.©cmt')
+
     @property
     def duration(self):
-        atom = self.find(u'moov.trak.mdia.mdhd')
+        '''The duration of the audio file (in whole seconds).'''
+        atom = self.find('moov.trak.mdia.mdhd')
         return atom.duration // self.sample_rate if atom else 0
-    
+
     @property
     def genre(self):
-        data = self._get_attr(u'moov.udta.meta.ilst.gnre')
+        '''The genre associated with the audio.'''
+        data = self._get_attr('moov.udta.meta.ilst.gnre')
         if not data:
-            data = self._get_attr(u'moov.udta.meta.ilst.©gen')
-        if isinstance(data, unicode):
+            data = self._get_attr('moov.udta.meta.ilst.©gen')
+        if isinstance(data, str):
             return data
         elif isinstance(data, int):
             return genre_by_index(data - 1)
         else:
-            return u''
-    
+            return ''
+
     @property
     def sample_rate(self):
-        atom = self.find(u'moov.trak.mdia.mdhd')
+        '''The sample rate of the audio file.'''
+        atom = self.find('moov.trak.mdia.mdhd')
         return atom.sample_rate if atom else 0
-    
+
     @property
     def title(self):
-        return self._get_attr(u'moov.udta.meta.ilst.©nam')
-    
+        '''The title associated with the audio.'''
+        return self._get_attr('moov.udta.meta.ilst.©nam')
+
     @property
     def track(self):
-        return tryint(self._get_attr(u'moov.udta.meta.ilst.trkn'))
-    
+        '''The track number associated with the audio.'''
+        return tryint(self._get_attr('moov.udta.meta.ilst.trkn'))
+
     @property
     def valid(self):
-        return self.find(u'mdat') is not None
-    
+        '''Whether the file could correctly be read or not.'''
+        return self.find('mdat') is not None
+
     @property
     def year(self):
-        return self._get_attr(u'moov.udta.meta.ilst.©day')[:4]
-    
+        '''The year in which the audio was recorded.'''
+        return self._get_attr('moov.udta.meta.ilst.©day')[:4]

@@ -2,11 +2,10 @@
 # Created On: 2004/12/10
 # Copyright 2010 Hardcoded Software (http://www.hardcoded.net)
 
-# This software is licensed under the "BSD" License as described in the "LICENSE" file, 
-# which should be included with this package. The terms are also available at 
+# This software is licensed under the "BSD" License as described in the "LICENSE" file,
+# which should be included with this package. The terms are also available at
 # http://www.hardcoded.net/licenses/bsd_license
 
-from __future__ import with_statement
 from . import id3v1
 from . import id3v2
 import struct
@@ -24,8 +23,8 @@ ID_LAYER1 = 3
 ID_LAYER2 = 2
 ID_LAYER3 = 1
 
-MPEG_SYNC = 0xffe00000 # 11 bits set
-MPEG_PAD  = 0x200 #pad flag mask (pos 20)
+MPEG_SYNC = 0xffe00000  # 11 bits set
+MPEG_PAD  = 0x200  # pad flag mask (pos 20)
 
 BR_NULL   = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
@@ -56,17 +55,18 @@ SPF_M2 = (0, 576, 1152, 384)
 
 SPF_LIST = (SPF_M2, SPF_NULL, SPF_M2, SPF_M1)
 
-MPEG_CM_STEREO = 0;
-MPEG_CM_JOINT_STEREO = 1;
-MPEG_CM_DUAL_CHANNEL = 2;
-MPEG_CM_MONO = 3;
-MPEG_CM_UNKNOWN = 4;
+MPEG_CM_STEREO = 0
+MPEG_CM_JOINT_STEREO = 1
+MPEG_CM_DUAL_CHANNEL = 2
+MPEG_CM_MONO = 3
+MPEG_CM_UNKNOWN = 4
 
 MAX_SEEK_BYTES = 4096
 
+
 def get_vbr_offset(version, channel_mode):
-    #Depending on mpeg version and mode, the VBR header will be at a different offset
-    #after the mpeg header.
+    # Depending on mpeg version and mode, the VBR header will be at a different offset
+    # after the mpeg header.
     if version == ID_MPEG1:
         if channel_mode == MPEG_CM_MONO:
             return 17
@@ -77,6 +77,7 @@ def get_vbr_offset(version, channel_mode):
             return 9
         else:
             return 17
+
 
 def get_vbr_coefficient(version, layer):
     if version == ID_MPEG1:
@@ -90,11 +91,12 @@ def get_vbr_coefficient(version, layer):
         elif layer == ID_LAYER2:
             return 144
         else:
-            return 72     
+            return 72
 
-class MpegFrameHeader(object):
-    def __init__(self, data): 
-        #data = HEADER_SIZE bytes integer
+
+class MpegFrameHeader:
+    def __init__(self, data):
+        # data = HEADER_SIZE bytes integer
         self.valid = False
         self.mpeg_id = 0
         self.layer = 0
@@ -126,47 +128,49 @@ class MpegFrameHeader(object):
                 self.size = (((sc // 8) * br * 1000) // sr) + pad
             else:
                 self.valid = False
-    
 
-class XingHeader(object):
-    def __init__(self, data): #data is a 128 bytes str
-        self.valid = data[:4] == 'Xing'
+
+class XingHeader:
+    def __init__(self, data):  # data is a 128 bytes str
+        self.valid = data[:4] == b'Xing'
         self.frames = unpack('!I', data[8:12])[0]
         self.size = unpack('!I', data[12:16])[0]
         self.scale = data[119]
-    
-class FhgHeader(object):
+
+
+class FhgHeader:
     def __init__(self, data):
-        self.valid = data[:4] == 'VBRI'
+        self.valid = data[:4] == b'VBRI'
         self.frames = unpack('!I', data[14:18])[0]
         self.size = unpack('!I', data[10:14])[0]
         self.scale = unpack('B', data[9:10])[0]
-    
-class ComputedVBRHeader(object):
+
+
+class ComputedVBRHeader:
     def __init__(self, frame_browser):
         self.valid = True
         self.frames, self.size = frame_browser.stats()
-    
 
-class FrameBrowser(object):
+
+class FrameBrowser:
     def __init__(self, fp):
         self.fp = fp
         self.frame_index = 0
         if not self._read():
             self._seek()
         self.initial_position = self.position
-    
+
     def _read(self):
         self.position = tryint(self.fp.tell())
         data = self.fp.read(HEADER_SIZE)
         try:
-            self.frame = MpegFrameHeader(unpack("!I",data)[0])
+            self.frame = MpegFrameHeader(unpack("!I", data)[0])
         except struct.error:
             self.frame = MpegFrameHeader(0)
         return self.frame.valid
-    
+
     def _seek(self):
-        # A mpeg header is 11 set bits. Which means that there is a \xff char followed by a char 
+        # A mpeg header is 11 set bits. Which means that there is a \xff char followed by a char
         # that is \xe0 or more.
         self.fp.seek(self.position, 0)
         data = self.fp.read(MAX_SEEK_BYTES)
@@ -177,46 +181,46 @@ class FrameBrowser(object):
             if h.valid:
                 self.position += tag_index + h.tagsize
                 return self._seek()
-        index = data.find('\xff')
+        index = data.find(b'\xff')
         while (index > -1):
             try:
-                result = MpegFrameHeader(unpack('!I', data[index:index+HEADER_SIZE])[0])
+                result = MpegFrameHeader(unpack('!I', data[index:index + HEADER_SIZE])[0])
                 if result.valid:
                     nextindex = index + result.size
                     try:
-                        next = MpegFrameHeader(unpack('!I', data[nextindex:nextindex+HEADER_SIZE])[0])
+                        next = MpegFrameHeader(unpack('!I', data[nextindex:nextindex + HEADER_SIZE])[0])
                         if next.valid:
                             self.position += index
                             self.frame = result
                             return True
                     except struct.error:
                         pass
-                index = data.find('\xff', index+1)
+                index = data.find(b'\xff', index + 1)
             except struct.error:
                 index = -1
         return False
-    
+
     def first(self):
         self.fp.seek(self.initial_position, 0)
         self.frame_index = 0
         self._read()
         return self.frame
-    
-    def next(self):
+
+    def __next__(self):
         if self.frame.valid:
             self.fp.seek(self.position + self.frame.size, 0)
             self._read()
             self.frame_index += 1
         return self.frame
-    
+
     def stats(self):
-        u"""Iterates over all frames and return (frame_count, total_size)"""
+        """Iterates over all frames and return (frame_count, total_size)"""
         self.first()
         size = self.frame.size
-        while self.next().valid:
+        while next(self).valid:
             size += self.frame.size
         return (self.frame_index, size)
-    
+
 
 def get_vbr_info(fp, b):
     fheader = b.frame
@@ -224,16 +228,31 @@ def get_vbr_info(fp, b):
     fp.seek(vbr_offset + 4, 1)
     vbr_id = fp.read(4)
     fp.seek(-4, 1)
-    if vbr_id == 'Xing':
+    if vbr_id == b'Xing':
         return XingHeader(fp.read(128))
-    if vbr_id == 'VBRI':
+    if vbr_id == b'VBRI':
         return FhgHeader(fp.read(18))
     br = b.frame.bitrate
-    for i in xrange(4):
-        if b.next().bitrate != br:
+    for i in range(4):
+        if next(b).bitrate != br:
             return ComputedVBRHeader(b)
 
-class Mpeg(object):
+
+class Mpeg:
+    '''The class used to handle MPEG metadata.
+
+    :param infile: The file object or path to process.
+
+    :ivar int ~mpeg.Mpeg.audio_offset: The offset, in bytes, at which audio data starts in the file.
+    :ivar int ~mpeg.Mpeg.duration: The duration of the audio file (in whole seconds).
+    :ivar ~mpeg.Mpeg.id3v1: The ID3 version 1 metadata, if present.
+    :vartype id3v1: :class:`hsaudiotag.id3v1.Id3v1`
+    :ivar ~mpeg.Mpeg.id3v2: The ID3 version 2 metadata, if present.
+    :vartype id3v2: :class:`hsaudiotag.id3v2.Id3v2`
+    :ivar int ~mpeg.Mpeg.size: The size of the file, in bytes.
+    :ivar ComputedVBRHeader ~mpeg.Mpeg.vbr:
+    :ivar bool ~mpeg.Mpeg.valid: Whether the file could correctly be read or not.
+    '''
     def __init__(self, infile):
         with FileOrPath(infile) as fp:
             self.id3v1 = id3v1.Id3v1(fp)
@@ -246,12 +265,12 @@ class Mpeg(object):
             b = FrameBrowser(fp)
             self._frameheader = b.frame
             self.audio_offset = b.position
-            fp.seek(b.position, 0) #Needed for VBR seeking
+            fp.seek(b.position, 0)  # Needed for VBR seeking
             self.vbr = get_vbr_info(fp, b)
             fp.seek(0, 2)
             self.size = tryint(fp.tell())
             if self.bitrate:
-                #(audio_size * 8) / (bitrate * 1000) == audio_size / (bitrate * 125)
+                # (audio_size * 8) / (bitrate * 1000) == audio_size / (bitrate * 125)
                 self.duration = self.audio_size // (self.bitrate * 125)
                 # 'and self.id3v2.duration' is there to avoid reading the mpeg frames when there is no TLEN in the tag.
                 if self.id3v2.exists and self.id3v2.duration and (self.id3v2.duration != self.duration):
@@ -261,24 +280,29 @@ class Mpeg(object):
             else:
                 self.duration = 0
             self.valid = self._frameheader.valid
-    
-    #--- Properties
+
+    # --- Properties
     @property
     def tag(self):
+        '''The :class:`hsaudiotag.id3v2.Id3v2` or :class:`hsaudiotag.id3v1.Id3v1`
+        metadata object associated with the MPEG file.
+        '''
         if self.id3v2.exists:
             return self.id3v2
         elif self.id3v1.exists:
             return self.id3v1
-    
+
     @property
     def audio_size(self):
+        '''The size of the audio part of the file in bytes.'''
         result = self.size - self.id3v1.size - self.audio_offset
         if self.id3v2.position == id3v2.POS_END:
             result -= self.id3v2.size
         return result
-    
+
     @property
     def bitrate(self):
+        '''The bitrate of the audio file.'''
         if self.vbr and (self.vbr.frames > 0):
             coeff = get_vbr_coefficient(self._frameheader.mpeg_id, self._frameheader.layer)
             pad = self._frameheader.padding_size
@@ -287,8 +311,8 @@ class Mpeg(object):
             return ((size_per_frame - pad) * sr) // (coeff * 1000)
         else:
             return self._frameheader.bitrate
-    
+
     @property
     def sample_rate(self):
+        '''The sample rate of the audio file.'''
         return self._frameheader.sample_rate
-    

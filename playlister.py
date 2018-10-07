@@ -50,28 +50,27 @@ media = 'media';
 #####################################
 ###   BEGIN PLAYLIST GENERATION   ###
 #####################################
-'''
 def scanMedia(rootdir):
 
-for root, subFolders, files in os.walk(rootdir):
-    outfileName = os.path.join(root, "py-outfile.txt")
-    print "outfileName is " + outfileName
-    with open( outfileName, 'w' ) as folderOut:
-        for folder in subFolders:
-            print "%s has subdirectory %s" % (root, folder)
+	for root, subFolders, files in os.walk(rootdir):
+		outfileName = os.path.join(root, "py-outfile.txt")
+		print ("outfileName is " + outfileName)
+		with open( outfileName, 'w' ) as folderOut:
+			for folder in subFolders:
+				print ("%s has subdirectory %s" % (root, folder))
 
-        for filename in files:
-            filePath = os.path.join(root, filename)
+			for filename in files:
+				filePath = os.path.join(root, filename)
 
-            with open( filePath, 'r' ) as f:
-                toWrite = f.read()
-                folderOut.write("The file %s contains %s" % (filePath, toWrite))
-                folderOut.write( toWrite )
-f = []
-for (dirpath, dirnames, filenames) in walk(mypath):
-    f.extend(filenames)
-    breakos.path.join(dirpath, name)
-'''
+				with open( filePath, 'r' ) as f:
+					toWrite = f.read()
+					folderOut.write("The file %s contains %s" % (filePath, toWrite))
+					folderOut.write( toWrite )
+	f = []
+	for (dirpath, dirnames, filenames) in walk(mypath):
+		f.extend(filenames)
+		breakos.path.join(dirpath, name)
+	
 # Given a root directory, this script will build an XSPF playlist
 def scanMedia(path):
 	confirmExistence(path)
@@ -219,22 +218,22 @@ def formatPath(path):
 def confirmExistence(path):
 	#implement error logging so exceptions like these will end up somewhere useful upon error
 	if not os.path.isdir(path):
-		raise OSError, 'Path %s is not a directory' % path
+		raise OSError('Path %s is not a directory' % path)
 		sys.exit(1)
 	if not os.path.exists(path):
-		raise OSError, 'Path %s does not exist' % path
+		raise OSError('Path %s does not exist' % path)
 		sys.exit(1)
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
-		print 'usage: python playlister.py [absolute path]'
+		print ('usage: python playlister.py [absolute path]')
 		sys.exit(1)
 	#Windows filepath may contain spaces. Merge into single string.
 	if len(sys.argv) > 2:
 		path = ' '.join([x for x in sys.argv[1::1]])
 		xml = generateXML(scanMedia(path))
-		print xml
+		print (xml)
 	else:
 		xml = generateXML(scanMedia(sys.argv[1]))
-		print xml
+		print (xml)
 		
